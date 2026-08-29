@@ -111,10 +111,29 @@ def main():
 
                 summary_en = summarize(raw)
 
+                # Check if message has a photo/media
+                has_media = msg.photo or msg.media
+
                 for lang in ["en", "am", "om"]:
                     translated = translate(summary_en, lang)
                     post_text = f"{LANG_LABELS[lang]}\n\n{translated}"
-                    client.send_message(TARGET_CHANNEL, post_text)
+                    
+                    # If original message had a photo, send photo with caption
+                    if has_media:
+                        try:
+                            client.send_file(
+                                TARGET_CHANNEL, 
+                                msg.media,  # or msg.photo
+                                caption=post_text
+                            )
+                        except Exception as e:
+                            print(f"Failed to send media: {e}")
+                            # Fallback to text only
+                            client.send_message(TARGET_CHANNEL, post_text)
+                    else:
+                        # Send text only
+                        client.send_message(TARGET_CHANNEL, post_text)
+                    
                     time.sleep(3)  # small gap between the 3 language posts
 
             state[channel] = newest_id
