@@ -40,4 +40,5 @@ jobs:
           git diff --staged --quiet || git commit -m "Update state [skip ci]"
           git fetch origin main
           git  rebase origin main
+          git pull origin main 
           git push
