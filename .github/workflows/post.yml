@@ -1,0 +1,41 @@
+name: Auto Post Tech News
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"   # every 3 hours (UTC) - edit as you like
+  workflow_dispatch: {}      # lets you run it manually from GitHub app too
+
+permissions:
+  contents: write
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run poster
+        env:
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
+          SESSION_STRING: ${{ secrets.SESSION_STRING }}
+          SOURCE_CHANNELS: ${{ secrets.SOURCE_CHANNELS }}
+          TARGET_CHANNEL: ${{ secrets.TARGET_CHANNEL }}
+        run: python poster.py
+
+      - name: Save updated state
+        run: |
+          git config user.name "auto-poster-bot"
+          git config user.email "actions@github.com"
+          git add state.json
+          git diff --staged --quiet || git commit -m "Update state [skip ci]"
+          git push
