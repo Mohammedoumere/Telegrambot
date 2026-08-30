@@ -30,6 +30,7 @@ jobs:
           SESSION_STRING: ${{ secrets.SESSION_STRING }}
           SOURCE_CHANNELS: ${{ secrets.SOURCE_CHANNELS }}
           TARGET_CHANNEL: ${{ secrets.TARGET_CHANNEL }}
+          RSS_FEEDS: ${{ secrets.RSS_FEEDS }}
         run: python poster.py
 
       - name: Save updated state
