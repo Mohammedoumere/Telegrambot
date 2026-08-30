@@ -2,7 +2,7 @@ name: Auto Post Tech News
 
 on:
   schedule:
-    - cron: "0 */3 * * *"   # every 3 hours (UTC) - edit as you like
+    - cron: "0 */1 * * *"   # every 1 hours (UTC) - edit as you like
   workflow_dispatch: {}      # lets you run it manually from GitHub app too
 
 permissions:
