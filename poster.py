@@ -37,7 +37,6 @@ try:
     API_ID = int(os.environ.get("API_ID") or "")
     API_HASH = os.environ.get("API_HASH") or ""
     SESSION_STRING = os.environ.get("SESSION_STRING") or ""
-    SOURCE_CHANNELS = [c.strip() for c in (os.environ.get("SOURCE_CHANNELS") or "").split(",") if c.strip()]
     TARGET_CHANNEL = (os.environ.get("TARGET_CHANNEL") or "").strip()
     MAX_PER_CHANNEL = int(os.environ.get("MAX_PER_CHANNEL", "3"))  # newest posts to check each run
 except Exception:
@@ -63,6 +62,12 @@ TECH_KEYWORDS = [
     "computer", "smartphone", "5g", "telecom", "fintech", "robot",
     "ethio telecom", "safaricom", "e-commerce", "cloud", "app store",
     "google", "microsoft", "meta", "openai", "chatgpt", "gadget",
+    # Amharic
+    "ቴክኖሎጂ", "ኢኖቬሽን", "ዲጂታል", "ሶፍትዌር", "ኮምፒዩተር", "ኢንተርኔት",
+    "ስማርት ስልክ", "አርቴፊሻል ኢንተለጀንስ", "ስታርትአፕ", "አፕሊኬሽን", "ኔትወርክ",
+    # Afaan Oromoo
+    "teeknooloojii", "invenshinii", "dijitaalaa", "sofuweerii",
+    "komputara", "interneetii", "istaartaappii",
 ]
 
 LANG_LABELS = {
