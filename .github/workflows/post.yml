@@ -31,7 +31,6 @@ jobs:
           TARGET_CHANNEL: ${{ secrets.TARGET_CHANNEL }}
           SOURCE_CHANNELS: ${{ secrets.SOURCE_CHANNELS }}
           RSS_FEEDS: ${{ secrets.RSS_FEEDS }}
-          GOOGLE_TRANSLATE_API_KEY: ${{ secrets.GOOGLE_TRANSLATE_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python poster.py
 
