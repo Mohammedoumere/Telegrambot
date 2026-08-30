@@ -1,10 +1,13 @@
 """
-Telegram Tech News Auto-Poster (improved logging & reliability)
+Telegram Tech News Auto-Poster with Web Scraping (improved logging & reliability)
 --------------------------------
 Reads new posts from a list of source Telegram channels, keeps only
 technology-related posts, makes a short summary (no links), translates
 it into English / Amharic / Afaan Oromoo, and posts each language as
 its own separate message (never mixed) to your target channel.
+
+Also fetches related tech news from Google News and other websites,
+extracts source links, and includes them in the posted message.
 
 This version adds clearer logging, env checks, resolves the target
 entity once, and uses safer sending/forwarding with detailed exception
@@ -20,6 +23,10 @@ import logging
 from telethon.sync import TelegramClient
 from telethon.sessions import StringSession
 from deep_translator import GoogleTranslator
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, quote
+import feedparser
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -51,6 +58,17 @@ LANG_LABELS = {
     "en": "🇬🇧 English",
     "am": "🇪🇹 አማርኛ",
     "om": "🟢 Afaan Oromoo",
+}
+
+# User-Agent to avoid blocks
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+HEADERS = {"User-Agent": USER_AGENT}
+
+# News sources
+NEWS_SOURCES = {
+    "google_news": "https://news.google.com/news/rss/headlines/section/topic/TECHNOLOGY",
+    "techcrunch": "https://feeds.techcrunch.com/",
+    "hackernews": "https://news.ycombinator.com/",
 }
 
 
@@ -94,6 +112,127 @@ def translate(text: str, target: str) -> str:
     except Exception as e:
         logger.warning("Translation to %s failed: %s", target, e)
         return text
+
+
+def fetch_news_from_rss(feed_url: str, max_articles: int = 3) -> list:
+    """Fetch news from RSS feed and extract source links."""
+    articles = []
+    try:
+        feed = feedparser.parse(feed_url)
+        for entry in feed.entries[:max_articles]:
+            article = {
+                "title": entry.get("title", ""),
+                "link": entry.get("link", ""),
+                "summary": entry.get("summary", ""),
+                "source": feed.feed.get("title", "RSS Feed")
+            }
+            if article["title"] and article["link"]:
+                articles.append(article)
+        logger.info("Fetched %d articles from RSS: %s", len(articles), feed_url)
+    except Exception as e:
+        logger.warning("Failed to fetch RSS from %s: %s", feed_url, e)
+    return articles
+
+
+def fetch_google_news(keyword: str, max_articles: int = 3) -> list:
+    """Fetch news from Google News using RSS."""
+    try:
+        search_url = f"https://news.google.com/rss/search?q={quote(keyword)}"
+        return fetch_news_from_rss(search_url, max_articles)
+    except Exception as e:
+        logger.warning("Failed to fetch Google News for keyword '%s': %s", keyword, e)
+        return []
+
+
+def fetch_hackernews(max_articles: int = 3) -> list:
+    """Fetch top posts from Hacker News with direct links."""
+    articles = []
+    try:
+        response = requests.get(NEWS_SOURCES["hackernews"], headers=HEADERS, timeout=5)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, "html.parser")
+        
+        # Get top stories
+        rows = soup.find_all("tr", class_="athing")[:max_articles]
+        
+        for row in rows:
+            title_cell = row.find("span", class_="titleline")
+            if not title_cell:
+                continue
+                
+            link_elem = title_cell.find("a")
+            if not link_elem:
+                continue
+            
+            title = link_elem.text.strip()
+            link = link_elem.get("href", "")
+            
+            # Make absolute URL if needed
+            if link and not link.startswith("http"):
+                link = urljoin(NEWS_SOURCES["hackernews"], link)
+            
+            if title and link:
+                articles.append({
+                    "title": title,
+                    "link": link,
+                    "summary": "",
+                    "source": "Hacker News"
+                })
+        
+        logger.info("Fetched %d articles from Hacker News", len(articles))
+    except Exception as e:
+        logger.warning("Failed to fetch Hacker News: %s", e)
+    
+    return articles
+
+
+def fetch_web_news(keywords: list, max_articles: int = 5) -> list:
+    """Fetch news from multiple web sources based on keywords."""
+    all_articles = []
+    
+    # Try multiple sources
+    for keyword in keywords[:2]:  # Limit to 2 keywords to avoid too many requests
+        # Google News
+        google_articles = fetch_google_news(keyword, max_articles=2)
+        all_articles.extend(google_articles)
+        time.sleep(1)  # Be respectful to servers
+        
+        # TechCrunch RSS
+        try:
+            techcrunch_articles = fetch_news_from_rss(NEWS_SOURCES["techcrunch"], max_articles=2)
+            all_articles.extend(techcrunch_articles)
+        except Exception as e:
+            logger.warning("TechCrunch fetch failed: %s", e)
+        time.sleep(1)
+    
+    # Hacker News (separate because it requires parsing)
+    hn_articles = fetch_hackernews(max_articles=2)
+    all_articles.extend(hn_articles)
+    
+    # Remove duplicates and limit
+    seen_titles = set()
+    unique_articles = []
+    for article in all_articles:
+        if article["title"] not in seen_titles:
+            seen_titles.add(article["title"])
+            unique_articles.append(article)
+    
+    return unique_articles[:max_articles]
+
+
+def format_post_with_sources(summary_text: str, source_articles: list = None) -> str:
+    """Format post text with source links if available."""
+    post = summary_text
+    
+    if source_articles:
+        post += "\n\n📚 **Related Sources:**\n"
+        for i, article in enumerate(source_articles[:3], 1):  # Limit to 3 sources
+            source_name = article.get("source", "Source")
+            link = article.get("link", "")
+            if link:
+                post += f"{i}. [{source_name}]({link})\n"
+    
+    return post
 
 
 def main():
@@ -147,13 +286,34 @@ def main():
                         continue
 
                     summary_en = summarize(raw)
+                    
+                    # Extract keywords for web news search
+                    keywords = [k for k in TECH_KEYWORDS if k in raw.lower()]
+                    if not keywords:
+                        keywords = ["technology", "tech news"]
+                    
+                    # Fetch related web news
+                    logger.info("Fetching related web news for keywords: %s", keywords)
+                    web_news = fetch_web_news(keywords, max_articles=3)
 
                     # Check if message has a photo/media
                     has_media = getattr(msg, 'photo', None) or getattr(msg, 'media', None)
 
                     for lang in ["en", "am", "om"]:
                         translated = translate(summary_en, lang)
-                        post_text = f"{LANG_LABELS[lang]}\n\n{translated}"
+                        
+                        # Format with source links (translate the label but keep links)
+                        if lang == "en":
+                            post_text = format_post_with_sources(
+                                f"{LANG_LABELS[lang]}\n\n{translated}",
+                                web_news
+                            )
+                        else:
+                            # For non-English, translate only the summary, keep source links in English
+                            post_text = format_post_with_sources(
+                                f"{LANG_LABELS[lang]}\n\n{translated}",
+                                web_news
+                            )
 
                         try:
                             if has_media:
