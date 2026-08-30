@@ -6,9 +6,9 @@
     "https://arstechnica.com/tech-policy/2026/08/i-asked-100-companies-for-my-data-some-deleted-it-instead/"
   ],
   "rss:https://techcrunch.com/feed/": [
-    "https://techcrunch.com/?p=3156771",
     "https://techcrunch.com/?p=3158394",
-    "https://techcrunch.com/?p=3158639"
+    "https://techcrunch.com/?p=3158639",
+    "https://techcrunch.com/?p=3156771"
   ],
   "rss:https://www.theverge.com/rss/index.xml": [
     "https://www.theverge.com/?p=986438",
@@ -17,16 +17,17 @@
   ],
   "rss:http://feeds.bbci.co.uk/news/technology/rss.xmlhttps://www.aljazeera.com/xml/rss/all.xml": [],
   "rss:http://feeds.bbci.co.uk/news/technology/rss.xml": [
-    "https://www.bbc.co.uk/news/articles/c4gv5gepxnyo#0",
     "https://www.bbc.co.uk/news/articles/cwyz11475l1o#0",
-    "https://www.bbc.co.uk/news/articles/cew92lp2g45o#0"
+    "https://www.bbc.co.uk/news/articles/cew92lp2g45o#0",
+    "https://www.bbc.co.uk/news/articles/c4gv5gepxnyo#0"
   ],
   "rss:https://www.aljazeera.com/xml/rss/all.xml": [
-    "https://www.aljazeera.com/?t=1788069718",
+    "https://www.aljazeera.com/?t=1788088743",
     "https://www.aljazeera.com/?t=1788067572",
-    "https://www.aljazeera.com/?t=1788064441",
     "https://www.aljazeera.com/?t=1785950529",
-    "https://www.aljazeera.com/?t=1788088743"
+    "https://www.aljazeera.com/?t=1788069718",
+    "https://www.aljazeera.com/?t=1788064441",
+    "https://www.aljazeera.com/?t=1788091537"
   ],
   "rss:https://amharic.voanews.com/api/zt$gteitjt": [
     "https://amharic.voanews.com/a/south-sudan-call-for-de-escalation/8011031.html"
@@ -34,12 +35,13 @@
   "rss:https://addisstandard.com/feed/": [],
   "rss:https://ethsat.com/feed/": [],
   "rss:https://capitalethiopia.com/feed/": [
-    "https://capitalethiopia.com/?p=82196",
-    "https://capitalethiopia.com/?p=82282"
+    "https://capitalethiopia.com/?p=82282",
+    "https://capitalethiopia.com/?p=82196"
   ],
   "rss:https://waltainfo.com/feed/": [],
   "posted_hashes": [
     "fd57053debcfc7e8e73ca18125b717f5",
-    "6758d5a7efabe7b2cc777b9a711188cd"
+    "6758d5a7efabe7b2cc777b9a711188cd",
+    "bd76f56624f4fc04ffacb066aff5a8b3"
   ]
 }
