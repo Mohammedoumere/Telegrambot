@@ -34,7 +34,8 @@ TARGET_CHANNEL = (os.environ.get("TARGET_CHANNEL") or "").strip()
 # Default RSS sources: Ars Technica, TechCrunch, The Verge.
 # You can override/extend this via the RSS_FEEDS secret (comma-separated URLs).
 DEFAULT_RSS_FEEDS = [
-    "http://feeds.bbci.co.uk/news/technology/rss.xml"
+    "https://techcrunch.com/feed/",
+    "http://feeds.bbci.co.uk/news/technology/rss.xml",
     "https://www.aljazeera.com/xml/rss/all.xml",
 ]
 RSS_FEEDS_ENV = os.environ.get("RSS_FEEDS", "").strip()
@@ -148,8 +149,8 @@ def process_rss_feeds(client, target_entity, state):
 
             if not raw:
                 continue
-            # Ars Technica / TechCrunch / The Verge are all tech sites already,
-            # but keep the keyword check as a light safety net for mixed feeds.
+            # TechCrunch and BBC are tech-focused already; Al Jazeera's feed is
+            # general news, so this keyword check is what filters it down to tech stories.
             if not is_tech(raw) and not is_tech(title):
                 new_seen_ids.append(entry_id)
                 continue
