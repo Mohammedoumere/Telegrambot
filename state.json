@@ -1,3 +1,18 @@
 {
-  "bighabesha_softwares": 4065
+  "bighabesha_softwares": 4065,
+  "rss:https://feeds.arstechnica.com/arstechnica/index": [
+    "https://arstechnica.com/tech-policy/2026/08/cities-terminate-flock-contracts-at-record-pace-in-august/",
+    "https://arstechnica.com/tech-policy/2026/08/kalshi-cant-evade-nevada-gambling-laws-by-calling-bets-swaps-court-rules/",
+    "https://arstechnica.com/tech-policy/2026/08/i-asked-100-companies-for-my-data-some-deleted-it-instead/"
+  ],
+  "rss:https://techcrunch.com/feed/": [
+    "https://techcrunch.com/?p=3156771",
+    "https://techcrunch.com/?p=3158394",
+    "https://techcrunch.com/?p=3158639"
+  ],
+  "rss:https://www.theverge.com/rss/index.xml": [
+    "https://www.theverge.com/?p=986438",
+    "https://www.theverge.com/?p=986456",
+    "https://www.theverge.com/?p=986461"
+  ]
 }
