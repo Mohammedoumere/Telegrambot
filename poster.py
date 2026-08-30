@@ -18,6 +18,7 @@ import os
 import re
 import json
 import time
+import hashlib
 import logging
 import feedparser
 from telethon.sync import TelegramClient
@@ -110,11 +111,19 @@ def translate(text: str, target: str):
         return None
 
 
-def post_summary(client, target_entity, raw_text: str, source_label: str):
-    """Post one news item as up to 3 separate single-language messages, one at a time.
-    If a language's translation fails or looks wrong, that language is skipped
-    (not posted) rather than posting broken/untranslated text."""
+def make_dedup_key(text: str) -> str:
+    """Normalize text so the same story from different sources hashes the same way."""
+    normalized = re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+    normalized = " ".join(normalized.split()[:12])  # first ~12 words is enough to catch dupes
+    return hashlib.md5(normalized.encode("utf-8")).hexdigest()
+
+
+def post_summary(client, target_entity, raw_text: str, source_label: str) -> bool:
+    """Post one news item as up to 3 separate single-language messages, one per minute.
+    If a language's translation fails, that language is skipped (not posted).
+    Returns True if at least one language was successfully posted."""
     summary_en = summarize(raw_text)
+    posted_any = False
     for lang in ["en", "am", "om"]:
         translated = translate(summary_en, lang)
 
@@ -126,12 +135,17 @@ def post_summary(client, target_entity, raw_text: str, source_label: str):
         try:
             client.send_message(target_entity, post_text)
             logger.info("Posted (%s) from %s", lang, source_label)
+            posted_any = True
         except Exception:
             logger.exception("Failed to send message (%s) from %s", lang, source_label)
-        time.sleep(3)
+        time.sleep(60)  # only one message per minute across the whole channel
+
+    return posted_any
 
 
 def process_rss_feeds(client, target_entity, state):
+    global_seen = set(state.get("posted_hashes", []))
+
     for feed_url in RSS_FEEDS:
         try:
             feed = feedparser.parse(feed_url)
@@ -160,13 +174,26 @@ def process_rss_feeds(client, target_entity, state):
                 new_seen_ids.append(entry_id)
                 continue
 
-            post_summary(client, target_entity, raw, source_name)
-            new_seen_ids.append(entry_id)
+            dedup_key = make_dedup_key(title or raw)
+            if dedup_key in global_seen:
+                logger.info("Skipping duplicate story from %s: %s", source_name, title[:60])
+                new_seen_ids.append(entry_id)
+                continue
+
+            posted = post_summary(client, target_entity, raw, source_name)
+            if posted:
+                new_seen_ids.append(entry_id)
+                global_seen.add(dedup_key)
+            # if nothing posted (e.g. send failed), don't mark as seen - retry next run
 
         state[seen_key] = new_seen_ids[-100:]
 
+    state["posted_hashes"] = list(global_seen)[-500:]
+
 
 def process_telegram_channels(client, target_entity, state):
+    global_seen = set(state.get("posted_hashes", []))
+
     for channel in SOURCE_CHANNELS:
         last_id = state.get(f"tg:{channel}", 0)
         newest_id = last_id
@@ -185,16 +212,29 @@ def process_telegram_channels(client, target_entity, state):
             if not getattr(msg, "message", None):
                 continue
             if msg.id <= last_id:
+                # already processed in a previous run; don't retry indefinitely
                 continue
-            newest_id = max(newest_id, msg.id)
 
             raw = clean_text(msg.message)
             if not raw:
+                newest_id = max(newest_id, msg.id)
                 continue
 
-            post_summary(client, target_entity, raw, channel)
+            dedup_key = make_dedup_key(raw)
+            if dedup_key in global_seen:
+                logger.info("Skipping duplicate story from %s", channel)
+                newest_id = max(newest_id, msg.id)
+                continue
+
+            posted = post_summary(client, target_entity, raw, channel)
+            if posted:
+                newest_id = max(newest_id, msg.id)
+                global_seen.add(dedup_key)
+            # if nothing posted, don't advance newest_id - retry this message next run
 
         state[f"tg:{channel}"] = newest_id
+
+    state["posted_hashes"] = list(global_seen)[-500:]
 
 
 def main():
