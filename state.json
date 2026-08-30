@@ -6,8 +6,8 @@
     "https://arstechnica.com/tech-policy/2026/08/i-asked-100-companies-for-my-data-some-deleted-it-instead/"
   ],
   "rss:https://techcrunch.com/feed/": [
-    "https://techcrunch.com/?p=3156771",
     "https://techcrunch.com/?p=3158394",
+    "https://techcrunch.com/?p=3156771",
     "https://techcrunch.com/?p=3158639"
   ],
   "rss:https://www.theverge.com/rss/index.xml": [
@@ -15,5 +15,15 @@
     "https://www.theverge.com/?p=986456",
     "https://www.theverge.com/?p=986461"
   ],
-  "rss:http://feeds.bbci.co.uk/news/technology/rss.xmlhttps://www.aljazeera.com/xml/rss/all.xml": []
+  "rss:http://feeds.bbci.co.uk/news/technology/rss.xmlhttps://www.aljazeera.com/xml/rss/all.xml": [],
+  "rss:http://feeds.bbci.co.uk/news/technology/rss.xml": [
+    "https://www.bbc.co.uk/news/articles/cwyz11475l1o#0",
+    "https://www.bbc.co.uk/news/articles/c4gv5gepxnyo#0",
+    "https://www.bbc.co.uk/news/articles/cew92lp2g45o#0"
+  ],
+  "rss:https://www.aljazeera.com/xml/rss/all.xml": [
+    "https://www.aljazeera.com/?t=1788064441",
+    "https://www.aljazeera.com/?t=1785950529",
+    "https://www.aljazeera.com/?t=1788067572"
+  ]
 }
