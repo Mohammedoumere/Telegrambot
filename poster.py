@@ -34,9 +34,8 @@ TARGET_CHANNEL = (os.environ.get("TARGET_CHANNEL") or "").strip()
 # Default RSS sources: Ars Technica, TechCrunch, The Verge.
 # You can override/extend this via the RSS_FEEDS secret (comma-separated URLs).
 DEFAULT_RSS_FEEDS = [
-    "https://feeds.arstechnica.com/arstechnica/index",
-    "https://techcrunch.com/feed/",
-    "https://www.theverge.com/rss/index.xml",
+    "http://feeds.bbci.co.uk/news/technology/rss.xml"
+    "https://www.aljazeera.com/xml/rss/all.xml",
 ]
 RSS_FEEDS_ENV = os.environ.get("RSS_FEEDS", "").strip()
 RSS_FEEDS = [f.strip() for f in RSS_FEEDS_ENV.split(",") if f.strip()] or DEFAULT_RSS_FEEDS
