@@ -61,10 +61,6 @@ SOURCE_CHANNELS_ENV = os.environ.get("SOURCE_CHANNELS", "").strip()
 SOURCE_CHANNELS = [c.strip() for c in SOURCE_CHANNELS_ENV.split(",") if c.strip()] or DEFAULT_SOURCE_CHANNELS
 MAX_PER_CHANNEL = int(os.environ.get("MAX_PER_CHANNEL", "1"))
 
-# Optional: Google Cloud Translation API key (official AI/NMT translation).
-GOOGLE_TRANSLATE_API_KEY = os.environ.get("GOOGLE_TRANSLATE_API_KEY", "").strip()
-GOOGLE_TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2"
-
 # Optional: OpenAI API key (ChatGPT-based translation, tried if Google's isn't set or fails).
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
