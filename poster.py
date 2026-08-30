@@ -20,6 +20,7 @@ import json
 import time
 import hashlib
 import logging
+import requests
 import feedparser
 from telethon.sync import TelegramClient
 from telethon.sessions import StringSession
@@ -60,6 +61,21 @@ SOURCE_CHANNELS_ENV = os.environ.get("SOURCE_CHANNELS", "").strip()
 SOURCE_CHANNELS = [c.strip() for c in SOURCE_CHANNELS_ENV.split(",") if c.strip()] or DEFAULT_SOURCE_CHANNELS
 MAX_PER_CHANNEL = int(os.environ.get("MAX_PER_CHANNEL", "1"))
 
+# Optional: Google Cloud Translation API key (official AI/NMT translation).
+GOOGLE_TRANSLATE_API_KEY = os.environ.get("GOOGLE_TRANSLATE_API_KEY", "").strip()
+GOOGLE_TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2"
+
+# Optional: OpenAI API key (ChatGPT-based translation, tried if Google's isn't set or fails).
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+LANG_NAMES = {
+    "en": "English",
+    "am": "Amharic",
+    "om": "Afaan Oromo (Oromo)",
+}
+
 STATE_FILE = "state.json"
 
 LANG_LABELS = {
@@ -96,19 +112,108 @@ def summarize(text: str, max_words: int = 45) -> str:
     return " ".join(words[:max_words]).rstrip(",.;:") + "…"
 
 
+def translate_via_official_api(text: str, target: str):
+    """Use Google Cloud Translation API (AI/NMT). Returns translated text or None on failure."""
+    try:
+        resp = requests.post(
+            GOOGLE_TRANSLATE_URL,
+            params={"key": GOOGLE_TRANSLATE_API_KEY},
+            json={"q": text, "target": target, "format": "text"},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            logger.warning("Google Translate API error %s: %s", resp.status_code, resp.text[:200])
+            return None
+        data = resp.json()
+        return data["data"]["translations"][0]["translatedText"]
+    except Exception as e:
+        logger.warning("Google Translate API request failed: %s", e)
+        return None
+
+
+def translate_via_openai(text: str, target: str):
+    """Use ChatGPT (OpenAI) for translation. Returns translated text or None on failure."""
+    lang_name = LANG_NAMES.get(target, target)
+    try:
+        resp = requests.post(
+            OPENAI_URL,
+            headers={
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": OPENAI_MODEL,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            f"You are a professional news translator. Translate the user's text into "
+                            f"{lang_name}. Output ONLY the translated text, with no notes, quotes, "
+                            f"labels, or explanations."
+                        ),
+                    },
+                    {"role": "user", "content": text},
+                ],
+                "temperature": 0.2,
+            },
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            logger.warning("OpenAI API error %s: %s", resp.status_code, resp.text[:200])
+            return None
+        data = resp.json()
+        return data["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        logger.warning("OpenAI API request failed: %s", e)
+        return None
+
+
 def translate(text: str, target: str):
-    """Translate text. Returns the translated string, or None if translation failed."""
+    """Translate text using, in order: Google Cloud Translation API (if configured),
+    ChatGPT/OpenAI (if configured), then the free unofficial Google Translate method
+    as a last resort. Returns the translated string, or None if every method failed
+    or came back looking like an error page."""
     if target == "en":
         return text
-    try:
-        result = GoogleTranslator(source="auto", target=target).translate(text)
-        if not result or not result.strip():
-            logger.warning("Translation to %s returned empty result", target)
+
+    result = None
+
+    if GOOGLE_TRANSLATE_API_KEY:
+        result = translate_via_official_api(text, target)
+
+    if result is None and OPENAI_API_KEY:
+        result = translate_via_openai(text, target)
+
+    if result is None:
+        try:
+            result = GoogleTranslator(source="auto", target=target).translate(text)
+        except Exception as e:
+            logger.warning("Translation to %s failed: %s", target, e)
             return None
-        return result
-    except Exception as e:
-        logger.warning("Translation to %s failed: %s", target, e)
+
+    if not result or not result.strip():
+        logger.warning("Translation to %s returned empty result", target)
         return None
+
+    if not is_valid_translation(result):
+        logger.warning("Translation to %s looked like an error page, discarding: %r", target, result[:120])
+        return None
+
+    return result
+
+
+ERROR_PAGE_SIGNS = [
+    "error 500", "server error", "that's an error", "that’s an error",
+    "that's all we know", "that’s all we know", "404 not found",
+    "bad gateway", "service unavailable", "please try again later",
+    "<html", "<!doctype",
+]
+
+
+def is_valid_translation(text: str) -> bool:
+    """Reject text that looks like an HTML/server error page instead of a real translation."""
+    lowered = text.lower()
+    return not any(sign in lowered for sign in ERROR_PAGE_SIGNS)
 
 
 def make_dedup_key(text: str) -> str:
@@ -118,27 +223,104 @@ def make_dedup_key(text: str) -> str:
     return hashlib.md5(normalized.encode("utf-8")).hexdigest()
 
 
-def post_summary(client, target_entity, raw_text: str, source_label: str) -> bool:
+def post_summary(client, target_entity, raw_text: str, source_label: str, title: str = "", image_url: str = "") -> bool:
     """Post one news item as up to 3 separate single-language messages, one per minute.
-    If a language's translation fails, that language is skipped (not posted).
+    Includes the headline, a short summary, the source, and an image when available.
+    If a language's translation fails (or looks broken), that language is skipped.
     Returns True if at least one language was successfully posted."""
     summary_en = summarize(raw_text)
     posted_any = False
     for lang in ["en", "am", "om"]:
-        translated = translate(summary_en, lang)
-
-        if translated is None:
+        translated_summary = translate(summary_en, lang)
+        if translated_summary is None:
             logger.warning("Skipping post (%s) from %s: translation failed", lang, source_label)
             continue
 
-        post_text = f"{LANG_LABELS[lang]}\n\n{translated}\n\n— {source_label}"
+        headline = translate(title, lang) if title else None
+        if title and headline is None:
+            headline = title  # fall back to the original headline rather than dropping it
+
+        parts = [LANG_LABELS[lang]]
+        if headline:
+            parts.append(f"📰 {headline}")
+        parts.append(translated_summary)
+        parts.append(f"— {source_label}")
+        post_text = "\n\n".join(parts)
+
         try:
-            client.send_message(target_entity, post_text)
-            logger.info("Posted (%s) from %s", lang, source_label)
-            posted_any = True
+            if image_url:
+                try:
+                    client.send_file(target_entity, image_url, caption=post_text)
+                    logger.info("Posted (%s) with image from %s", lang, source_label)
+                    posted_any = True
+                except Exception:
+                    logger.warning("Image send failed for %s, falling back to text-only", source_label)
+                    client.send_message(target_entity, post_text)
+                    logger.info("Posted (%s) text-only from %s", lang, source_label)
+                    posted_any = True
+            else:
+                client.send_message(target_entity, post_text)
+                logger.info("Posted (%s) from %s", lang, source_label)
+                posted_any = True
         except Exception:
             logger.exception("Failed to send message (%s) from %s", lang, source_label)
+
         time.sleep(60)  # only one message per minute across the whole channel
+
+    return posted_any
+
+
+def extract_image_url(entry) -> str:
+    """Try several common RSS fields to find an article image."""
+    try:
+        if hasattr(entry, "media_content") and entry.media_content:
+            url = entry.media_content[0].get("url")
+            if url:
+                return url
+        if hasattr(entry, "media_thumbnail") and entry.media_thumbnail:
+            url = entry.media_thumbnail[0].get("url")
+            if url:
+                return url
+        for link in entry.get("links", []):
+            if str(link.get("type", "")).startswith("image/"):
+                return link.get("href", "")
+        if "enclosures" in entry:
+            for enc in entry.enclosures:
+                if str(enc.get("type", "")).startswith("image/"):
+                    return enc.get("href", "") or enc.get("url", "")
+        summary_html = entry.get("summary", "") or entry.get("description", "")
+        match = re.search(r'<img[^>]+src="([^"]+)"', summary_html)
+        if match:
+            return match.group(1)
+    except Exception:
+        pass
+    return ""
+
+
+def post_summary_with_telegram_media(client, target_entity, raw_text: str, source_label: str, msg) -> bool:
+    """Like post_summary, but attaches the original Telegram message's photo/media
+    instead of a URL-based image."""
+    summary_en = summarize(raw_text)
+    posted_any = False
+    for lang in ["en", "am", "om"]:
+        translated_summary = translate(summary_en, lang)
+        if translated_summary is None:
+            logger.warning("Skipping post (%s) from %s: translation failed", lang, source_label)
+            continue
+
+        post_text = f"{LANG_LABELS[lang]}\n\n{translated_summary}\n\n— {source_label}"
+        try:
+            client.send_file(target_entity, msg.media, caption=post_text)
+            logger.info("Posted (%s) with media from %s", lang, source_label)
+            posted_any = True
+        except Exception:
+            logger.warning("Media send failed for %s, falling back to text-only", source_label)
+            try:
+                client.send_message(target_entity, post_text)
+                posted_any = True
+            except Exception:
+                logger.exception("Failed to send message (%s) from %s", lang, source_label)
+        time.sleep(60)
 
     return posted_any
 
@@ -180,7 +362,9 @@ def process_rss_feeds(client, target_entity, state):
                 new_seen_ids.append(entry_id)
                 continue
 
-            posted = post_summary(client, target_entity, raw, source_name)
+            image_url = extract_image_url(entry)
+            summary_only = clean_text(summary_raw) or raw
+            posted = post_summary(client, target_entity, summary_only, source_name, title=title, image_url=image_url)
             if posted:
                 new_seen_ids.append(entry_id)
                 global_seen.add(dedup_key)
@@ -226,7 +410,15 @@ def process_telegram_channels(client, target_entity, state):
                 newest_id = max(newest_id, msg.id)
                 continue
 
-            posted = post_summary(client, target_entity, raw, channel)
+            image_url = ""
+            has_photo = bool(getattr(msg, "photo", None))
+            posted = False
+            if has_photo:
+                # forward-with-caption path handled inside post_summary via image_url is for URLs only;
+                # for Telegram-native photos we send the translated caption directly with the media object.
+                posted = post_summary_with_telegram_media(client, target_entity, raw, channel, msg)
+            else:
+                posted = post_summary(client, target_entity, raw, channel)
             if posted:
                 newest_id = max(newest_id, msg.id)
                 global_seen.add(dedup_key)
