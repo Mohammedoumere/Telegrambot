@@ -95,21 +95,33 @@ def summarize(text: str, max_words: int = 45) -> str:
     return " ".join(words[:max_words]).rstrip(",.;:") + "…"
 
 
-def translate(text: str, target: str) -> str:
+def translate(text: str, target: str):
+    """Translate text. Returns the translated string, or None if translation failed."""
     if target == "en":
         return text
     try:
-        return GoogleTranslator(source="auto", target=target).translate(text)
+        result = GoogleTranslator(source="auto", target=target).translate(text)
+        if not result or not result.strip():
+            logger.warning("Translation to %s returned empty result", target)
+            return None
+        return result
     except Exception as e:
         logger.warning("Translation to %s failed: %s", target, e)
-        return text
+        return None
 
 
 def post_summary(client, target_entity, raw_text: str, source_label: str):
-    """Post one news item as 3 separate single-language messages, one at a time."""
+    """Post one news item as up to 3 separate single-language messages, one at a time.
+    If a language's translation fails or looks wrong, that language is skipped
+    (not posted) rather than posting broken/untranslated text."""
     summary_en = summarize(raw_text)
     for lang in ["en", "am", "om"]:
         translated = translate(summary_en, lang)
+
+        if translated is None:
+            logger.warning("Skipping post (%s) from %s: translation failed", lang, source_label)
+            continue
+
         post_text = f"{LANG_LABELS[lang]}\n\n{translated}\n\n— {source_label}"
         try:
             client.send_message(target_entity, post_text)
