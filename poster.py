@@ -43,6 +43,17 @@ try:
 except Exception:
     logger.exception("Error reading environment variables")
     raise
+    # Default RSS sources: Ars Technica, TechCrunch, The Verge.
+# You can override/extend this via the RSS_FEEDS secret (comma-separated URLs).
+DEFAULT_RSS_FEEDS = [
+    "https://feeds.arstechnica.com/arstechnica/index",
+    "https://techcrunch.com/feed/",
+    "https://www.theverge.com/rss/index.xml",
+]
+RSS_FEEDS_ENV = os.environ.get("RSS_FEEDS", "").strip()
+RSS_FEEDS = [f.strip() for f in RSS_FEEDS_ENV.split(",") if f.strip()] or DEFAULT_RSS_FEEDS
+MAX_PER_FEED = int(os.environ.get("MAX_PER_FEED", "3"))
+
 
 STATE_FILE = "state.json"
 
