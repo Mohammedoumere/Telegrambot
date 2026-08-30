@@ -29,6 +29,7 @@ jobs:
           API_HASH: ${{ secrets.API_HASH }}
           SESSION_STRING: ${{ secrets.SESSION_STRING }}
           TARGET_CHANNEL: ${{ secrets.TARGET_CHANNEL }}
+          SOURCE_CHANNELS: ${{ secrets.SOURCE_CHANNELS }}
           RSS_FEEDS: ${{ secrets.RSS_FEEDS }}
         run: python poster.py
 
