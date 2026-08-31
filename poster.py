@@ -37,7 +37,6 @@ TARGET_CHANNEL = (os.environ.get("TARGET_CHANNEL") or "").strip()
 
 # RSS sources: general news, all topics (not tech-only).
 DEFAULT_RSS_FEEDS = [
-    "https://techcrunch.com/feed/",
     "http://feeds.bbci.co.uk/news/technology/rss.xml",
     "https://www.aljazeera.com/xml/rss/all.xml",
     "https://amharic.voanews.com/api/zt$gteitjt",
