@@ -105,26 +105,6 @@ def summarize(text: str, max_words: int = 45) -> str:
         return text
     return " ".join(words[:max_words]).rstrip(",.;:") + "…"
 
-
-def translate_via_official_api(text: str, target: str):
-    """Use Google Cloud Translation API (AI/NMT). Returns translated text or None on failure."""
-    try:
-        resp = requests.post(
-            GOOGLE_TRANSLATE_URL,
-            params={"key": GOOGLE_TRANSLATE_API_KEY},
-            json={"q": text, "target": target, "format": "text"},
-            timeout=10,
-        )
-        if resp.status_code != 200:
-            logger.warning("Google Translate API error %s: %s", resp.status_code, resp.text[:200])
-            return None
-        data = resp.json()
-        return data["data"]["translations"][0]["translatedText"]
-    except Exception as e:
-        logger.warning("Google Translate API request failed: %s", e)
-        return None
-
-
 def translate_via_openai(text: str, target: str):
     """Use ChatGPT (OpenAI) for translation. Returns translated text or None on failure."""
     lang_name = LANG_NAMES.get(target, target)
