@@ -150,11 +150,6 @@ def translate(text: str, target: str):
     if target == "en":
         return text
 
-    result = None
-
-    if GOOGLE_TRANSLATE_API_KEY:
-        result = translate_via_official_api(text, target)
-
     if result is None and OPENAI_API_KEY:
         result = translate_via_openai(text, target)
 
