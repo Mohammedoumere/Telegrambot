@@ -8,7 +8,7 @@ Reads new articles from:
 
 Posts news with:
   - Clear, attractive headlines
-  - Brief, engaging summaries (no links)
+  - Longer, engaging summaries (100 words max, context-aware)
   - Multi-language translations (English / Amharic / Afaan Oromoo)
   - Each language as separate message (never mixed)
   - News category tags when available
@@ -112,6 +112,16 @@ CATEGORY_EMOJIS = {
     "energy": "⚡",
 }
 
+# Category keywords with detailed context needs
+DETAILED_CATEGORIES = {
+    "politics": ["politics", "election", "government", "parliament", "vote", "bill", "law"],
+    "business": ["business", "company", "market", "investment", "stock", "entrepreneur"],
+    "health": ["health", "medical", "disease", "vaccine", "hospital", "doctor"],
+    "tech": ["tech", "technology", "software", "ai", "app", "digital", "internet"],
+    "science": ["science", "research", "study", "discovery", "experiment", "scientist"],
+    "sport": ["sport", "team", "player", "game", "match", "championship", "league"],
+}
+
 
 def load_state():
     if os.path.exists(STATE_FILE):
@@ -148,6 +158,16 @@ def extract_headline(title: str, max_chars: int = 120) -> str:
     return headline
 
 
+def detect_category(title: str, summary: str) -> str:
+    """Detect news category based on keywords in title and summary."""
+    combined = (title + " " + summary).lower()
+    for category, keywords in DETAILED_CATEGORIES.items():
+        for keyword in keywords:
+            if keyword in combined:
+                return category
+    return "general"
+
+
 def guess_category(title: str, summary: str) -> str:
     """Guess news category from title and summary to select an emoji."""
     combined = (title + " " + summary).lower()
@@ -157,16 +177,36 @@ def guess_category(title: str, summary: str) -> str:
     return "📰"  # default news emoji
 
 
-def summarize(text: str, max_words: int = 50) -> str:
-    """Create a brief, engaging summary."""
+def summarize(text: str, title: str = "", max_words: int = 100) -> str:
+    """Create an intelligent, context-aware summary.
+    
+    Base length is 100 words, but adapts based on category:
+    - Politics/Business/Health: Full context (100 words) for important details
+    - Tech/Science: Full length for explanations
+    - Sports: Full length for game details
+    - General: Standard 100 words
+    """
     text = text.strip()
     words = text.split()
     
-    if len(words) <= max_words:
+    # Detect category to determine summary depth
+    category = detect_category(title, text)
+    
+    # Adjust word count based on category importance
+    if category in ["politics", "business", "health"]:
+        word_limit = 100  # Full context for important news
+    elif category in ["tech", "science"]:
+        word_limit = 100  # Detailed explanations needed
+    elif category == "sport":
+        word_limit = 95   # Game details
+    else:
+        word_limit = 100  # Default for general news
+    
+    if len(words) <= word_limit:
         return text
     
-    # Take first max_words and end at a sentence boundary if possible
-    summary = " ".join(words[:max_words]).rstrip(",.;:") + "…"
+    # Take first N words and try to end at sentence or phrase boundary
+    summary = " ".join(words[:word_limit]).rstrip(",.;:") + "…"
     return summary
 
 
@@ -265,14 +305,15 @@ def post_summary(client, target_entity, raw_text: str, source_label: str,
     Format:
     🇬🇧 English
     📰 HEADLINE
-    Summary text here...
+    
+    Full context summary (100 words, category-aware)...
     
     — Source Name
     
     If a language's translation fails, that language is skipped.
     Returns True if at least one language was successfully posted.
     """
-    summary_en = summarize(raw_text)
+    summary_en = summarize(raw_text, title)
     headline = extract_headline(title) if title else None
     category_emoji = guess_category(title or "", raw_text)
     
@@ -355,9 +396,9 @@ def post_summary_with_telegram_media(client, target_entity, raw_text: str,
     """Like post_summary, but attaches the original Telegram message's photo/media
     instead of a URL-based image.
     
-    Format includes emoji, headline, summary, and source.
+    Format includes emoji, headline, full context summary, and source.
     """
-    summary_en = summarize(raw_text)
+    summary_en = summarize(raw_text, title)
     headline = extract_headline(title) if title else None
     category_emoji = guess_category(title or "", raw_text)
     
