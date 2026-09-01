@@ -150,6 +150,7 @@ def translate(text: str, target: str):
     if target == "en":
         return text
 
+    result = None
     if result is None and OPENAI_API_KEY:
         result = translate_via_openai(text, target)
 
@@ -172,8 +173,8 @@ def translate(text: str, target: str):
 
 
 ERROR_PAGE_SIGNS = [
-    "error 500", "server error", "that's an error", "that’s an error",
-    "that's all we know", "that’s all we know", "404 not found",
+    "error 500", "server error", "that's an error", "that's an error",
+    "that's all we know", "that's all we know", "404 not found",
     "bad gateway", "service unavailable", "please try again later",
     "<html", "<!doctype",
 ]
