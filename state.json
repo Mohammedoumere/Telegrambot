@@ -35,15 +35,15 @@
   "rss:https://addisstandard.com/feed/": [],
   "rss:https://ethsat.com/feed/": [],
   "rss:https://capitalethiopia.com/feed/": [
+    "https://capitalethiopia.com/?p=82216",
     "https://capitalethiopia.com/?p=82282",
-    "https://capitalethiopia.com/?p=82196",
-    "https://capitalethiopia.com/?p=82216"
+    "https://capitalethiopia.com/?p=82196"
   ],
   "rss:https://waltainfo.com/feed/": [],
   "posted_hashes": [
+    "3bd74e23f402198fb5afd4ac9173df1b",
     "fd57053debcfc7e8e73ca18125b717f5",
     "0139aa8c916a44815dd2cd45d1c19b6c",
-    "3bd74e23f402198fb5afd4ac9173df1b",
     "6758d5a7efabe7b2cc777b9a711188cd",
     "bd76f56624f4fc04ffacb066aff5a8b3"
   ],
