@@ -6,11 +6,15 @@ Reads new articles from:
   2) Telegram channels you list in SOURCE_CHANNELS (for outlets with no RSS,
      e.g. Jille Communication, OMN, MinT, Ethiopian Press Agency)
 
-Posts ALL news (no topic filter), makes a short summary (no links),
-translates it into English / Amharic / Afaan Oromoo, and posts each
-language as its own separate message (never mixed) to your target channel.
+Posts news with:
+  - Clear, attractive headlines
+  - Brief, engaging summaries (no links)
+  - Multi-language translations (English / Amharic / Afaan Oromoo)
+  - Each language as separate message (never mixed)
+  - News category tags when available
+  - Source attribution
 
-Includes detailed logging so GitHub Actions logs show real errors
+Includes detailed logging for GitHub Actions
 (invalid session, permission issues, entity not found, feed errors, etc.)
 """
 
@@ -78,6 +82,36 @@ LANG_LABELS = {
     "om": "🟢 Afaan Oromoo",
 }
 
+# News category emojis
+CATEGORY_EMOJIS = {
+    "politics": "🏛️",
+    "election": "🗳️",
+    "government": "🏛️",
+    "business": "💼",
+    "economy": "📊",
+    "finance": "💰",
+    "market": "📈",
+    "tech": "💻",
+    "technology": "🖥️",
+    "science": "🔬",
+    "health": "🏥",
+    "medical": "⚕️",
+    "sport": "⚽",
+    "sports": "🏆",
+    "entertainment": "🎬",
+    "culture": "🎭",
+    "weather": "🌤️",
+    "climate": "🌍",
+    "environment": "🌱",
+    "war": "⚠️",
+    "conflict": "⚠️",
+    "security": "🛡️",
+    "crime": "🚨",
+    "education": "📚",
+    "agriculture": "🌾",
+    "energy": "⚡",
+}
+
 
 def load_state():
     if os.path.exists(STATE_FILE):
@@ -92,6 +126,7 @@ def save_state(state):
 
 
 def clean_text(text: str) -> str:
+    """Remove HTML tags, links, mentions, and excess whitespace."""
     text = re.sub(r"<[^>]+>", " ", text)          # strip any HTML tags
     text = re.sub(r"http\S+|www\.\S+", "", text)   # strip links
     text = re.sub(r"@\w+", "", text)               # strip @mentions
@@ -99,11 +134,41 @@ def clean_text(text: str) -> str:
     return text
 
 
-def summarize(text: str, max_words: int = 45) -> str:
+def extract_headline(title: str, max_chars: int = 120) -> str:
+    """Extract and clean a compelling headline."""
+    headline = clean_text(title).strip()
+    if len(headline) > max_chars:
+        # Try to cut at a word boundary
+        truncated = headline[:max_chars]
+        last_space = truncated.rfind(" ")
+        if last_space > max_chars * 0.7:
+            headline = truncated[:last_space].rstrip(",.;:") + "…"
+        else:
+            headline = truncated.rstrip(",.;:") + "…"
+    return headline
+
+
+def guess_category(title: str, summary: str) -> str:
+    """Guess news category from title and summary to select an emoji."""
+    combined = (title + " " + summary).lower()
+    for keyword, emoji in CATEGORY_EMOJIS.items():
+        if keyword in combined:
+            return emoji
+    return "📰"  # default news emoji
+
+
+def summarize(text: str, max_words: int = 50) -> str:
+    """Create a brief, engaging summary."""
+    text = text.strip()
     words = text.split()
+    
     if len(words) <= max_words:
         return text
-    return " ".join(words[:max_words]).rstrip(",.;:") + "…"
+    
+    # Take first max_words and end at a sentence boundary if possible
+    summary = " ".join(words[:max_words]).rstrip(",.;:") + "…"
+    return summary
+
 
 def translate_via_openai(text: str, target: str):
     """Use ChatGPT (OpenAI) for translation. Returns translated text or None on failure."""
@@ -193,12 +258,24 @@ def make_dedup_key(text: str) -> str:
     return hashlib.md5(normalized.encode("utf-8")).hexdigest()
 
 
-def post_summary(client, target_entity, raw_text: str, source_label: str, title: str = "", image_url: str = "") -> bool:
+def post_summary(client, target_entity, raw_text: str, source_label: str, 
+                 title: str = "", image_url: str = "") -> bool:
     """Post one news item as up to 3 separate single-language messages, one per minute.
-    Includes the headline, a short summary, the source, and an image when available.
-    If a language's translation fails (or looks broken), that language is skipped.
-    Returns True if at least one language was successfully posted."""
+    
+    Format:
+    🇬🇧 English
+    📰 HEADLINE
+    Summary text here...
+    
+    — Source Name
+    
+    If a language's translation fails, that language is skipped.
+    Returns True if at least one language was successfully posted.
+    """
     summary_en = summarize(raw_text)
+    headline = extract_headline(title) if title else None
+    category_emoji = guess_category(title or "", raw_text)
+    
     posted_any = False
     for lang in ["en", "am", "om"]:
         translated_summary = translate(summary_en, lang)
@@ -206,16 +283,22 @@ def post_summary(client, target_entity, raw_text: str, source_label: str, title:
             logger.warning("Skipping post (%s) from %s: translation failed", lang, source_label)
             continue
 
-        headline = translate(title, lang) if title else None
-        if title and headline is None:
-            headline = title  # fall back to the original headline rather than dropping it
-
-        parts = [LANG_LABELS[lang]]
+        translated_headline = None
         if headline:
-            parts.append(f"📰 {headline}")
-        parts.append(translated_summary)
-        parts.append(f"— {source_label}")
-        post_text = "\n\n".join(parts)
+            translated_headline = translate(headline, lang)
+            if translated_headline is None:
+                translated_headline = headline  # fall back to original
+
+        # Build attractive message format
+        parts = [LANG_LABELS[lang]]
+        
+        if translated_headline:
+            parts.append(f"{category_emoji} {translated_headline}")
+        
+        parts.append(f"\n{translated_summary}")
+        parts.append(f"\n— {source_label}")
+        
+        post_text = "\n".join(parts)
 
         try:
             if image_url:
@@ -267,10 +350,17 @@ def extract_image_url(entry) -> str:
     return ""
 
 
-def post_summary_with_telegram_media(client, target_entity, raw_text: str, source_label: str, msg) -> bool:
+def post_summary_with_telegram_media(client, target_entity, raw_text: str, 
+                                     source_label: str, msg, title: str = "") -> bool:
     """Like post_summary, but attaches the original Telegram message's photo/media
-    instead of a URL-based image."""
+    instead of a URL-based image.
+    
+    Format includes emoji, headline, summary, and source.
+    """
     summary_en = summarize(raw_text)
+    headline = extract_headline(title) if title else None
+    category_emoji = guess_category(title or "", raw_text)
+    
     posted_any = False
     for lang in ["en", "am", "om"]:
         translated_summary = translate(summary_en, lang)
@@ -278,7 +368,23 @@ def post_summary_with_telegram_media(client, target_entity, raw_text: str, sourc
             logger.warning("Skipping post (%s) from %s: translation failed", lang, source_label)
             continue
 
-        post_text = f"{LANG_LABELS[lang]}\n\n{translated_summary}\n\n— {source_label}"
+        translated_headline = None
+        if headline:
+            translated_headline = translate(headline, lang)
+            if translated_headline is None:
+                translated_headline = headline
+
+        # Build attractive message format
+        parts = [LANG_LABELS[lang]]
+        
+        if translated_headline:
+            parts.append(f"{category_emoji} {translated_headline}")
+        
+        parts.append(f"\n{translated_summary}")
+        parts.append(f"\n— {source_label}")
+        
+        post_text = "\n".join(parts)
+        
         try:
             client.send_file(target_entity, msg.media, caption=post_text)
             logger.info("Posted (%s) with media from %s", lang, source_label)
@@ -296,6 +402,7 @@ def post_summary_with_telegram_media(client, target_entity, raw_text: str, sourc
 
 
 def process_rss_feeds(client, target_entity, state):
+    """Process RSS feeds and post new articles."""
     global_seen = set(state.get("posted_hashes", []))
 
     for feed_url in RSS_FEEDS:
@@ -334,7 +441,8 @@ def process_rss_feeds(client, target_entity, state):
 
             image_url = extract_image_url(entry)
             summary_only = clean_text(summary_raw) or raw
-            posted = post_summary(client, target_entity, summary_only, source_name, title=title, image_url=image_url)
+            posted = post_summary(client, target_entity, summary_only, source_name, 
+                                title=title, image_url=image_url)
             if posted:
                 new_seen_ids.append(entry_id)
                 global_seen.add(dedup_key)
@@ -346,6 +454,7 @@ def process_rss_feeds(client, target_entity, state):
 
 
 def process_telegram_channels(client, target_entity, state):
+    """Process Telegram channels and post new messages."""
     global_seen = set(state.get("posted_hashes", []))
 
     for channel in SOURCE_CHANNELS:
@@ -380,12 +489,9 @@ def process_telegram_channels(client, target_entity, state):
                 newest_id = max(newest_id, msg.id)
                 continue
 
-            image_url = ""
             has_photo = bool(getattr(msg, "photo", None))
             posted = False
             if has_photo:
-                # forward-with-caption path handled inside post_summary via image_url is for URLs only;
-                # for Telegram-native photos we send the translated caption directly with the media object.
                 posted = post_summary_with_telegram_media(client, target_entity, raw, channel, msg)
             else:
                 posted = post_summary(client, target_entity, raw, channel)
