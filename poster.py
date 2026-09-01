@@ -38,6 +38,9 @@ API_ID_RAW = os.environ.get("API_ID") or ""
 API_HASH = os.environ.get("API_HASH") or ""
 SESSION_STRING = os.environ.get("SESSION_STRING") or ""
 TARGET_CHANNEL = (os.environ.get("TARGET_CHANNEL") or "").strip()
+VERBOSE = os.environ.get("VERBOSE", "").lower() in ("1", "true", "yes")
+if VERBOSE:
+    logger.setLevel(logging.DEBUG)
 
 # RSS sources: general news, all topics (not tech-only).
 DEFAULT_RSS_FEEDS = [
@@ -348,22 +351,30 @@ def post_summary(client, target_entity, raw_text: str, source_label: str,
         try:
             if image_url:
                 try:
+                    logger.debug("Sending file to %r (image_url=%s)", getattr(target_entity, 'username', target_entity), image_url)
                     client.send_file(target_entity, image_url, caption=post_text)
                     logger.info("Posted (%s) with image from %s", lang, source_label)
                     posted_any = True
-                except Exception:
-                    logger.warning("Image send failed for %s, falling back to text-only", source_label)
-                    client.send_message(target_entity, post_text)
-                    logger.info("Posted (%s) text-only from %s", lang, source_label)
-                    posted_any = True
+                except Exception as e:
+                    logger.warning("Image send failed for %s, falling back to text-only: %s", source_label, e)
+                    try:
+                        client.send_message(target_entity, post_text)
+                        logger.info("Posted (%s) text-only from %s", lang, source_label)
+                        posted_any = True
+                    except Exception as e2:
+                        logger.exception("Failed to send text message (%s) from %s: %s", lang, source_label, e2)
             else:
+                logger.debug("Sending message to %r", getattr(target_entity, 'username', target_entity))
                 client.send_message(target_entity, post_text)
                 logger.info("Posted (%s) from %s", lang, source_label)
                 posted_any = True
-        except Exception:
-            logger.exception("Failed to send message (%s) from %s", lang, source_label)
+        except Exception as e:
+            logger.exception("Failed to send message (%s) from %s: %s", lang, source_label, e)
 
-        time.sleep(60)  # only one message per minute across the whole channel
+        # Sleep between languages to avoid flood limits; can be configured via env var
+        sleep_between = int(os.environ.get("SLEEP_BETWEEN_LANGS", "60"))
+        if sleep_between > 0:
+            time.sleep(sleep_between)
 
     return posted_any
 
@@ -387,7 +398,7 @@ def extract_image_url(entry) -> str:
                 if str(enc.get("type", "")).startswith("image/"):
                     return enc.get("href", "") or enc.get("url", "")
         summary_html = entry.get("summary", "") or entry.get("description", "")
-        match = re.search(r'<img[^>]+src="([^"]+)"', summary_html)
+        match = re.search(r'<img[^>]+src="([^\"]+)"', summary_html)
         if match:
             return match.group(1)
     except Exception:
@@ -431,17 +442,20 @@ def post_summary_with_telegram_media(client, target_entity, raw_text: str,
         post_text = "\n".join(parts)
         
         try:
+            logger.debug("Sending media message to %r", getattr(target_entity, 'username', target_entity))
             client.send_file(target_entity, msg.media, caption=post_text)
             logger.info("Posted (%s) with media from %s", lang, source_label)
             posted_any = True
-        except Exception:
-            logger.warning("Media send failed for %s, falling back to text-only", source_label)
+        except Exception as e:
+            logger.warning("Media send failed for %s, falling back to text-only: %s", source_label, e)
             try:
                 client.send_message(target_entity, post_text)
                 posted_any = True
-            except Exception:
-                logger.exception("Failed to send message (%s) from %s", lang, source_label)
-        time.sleep(60)
+            except Exception as e2:
+                logger.exception("Failed to send message (%s) from %s: %s", lang, source_label, e2)
+        sleep_between = int(os.environ.get("SLEEP_BETWEEN_LANGS", "60"))
+        if sleep_between > 0:
+            time.sleep(sleep_between)
 
     return posted_any
 
@@ -550,6 +564,58 @@ def process_telegram_channels(client, target_entity, state):
     state["posted_hashes"] = list(global_seen)[-500:]
 
 
+def resolve_target_entity(client, target_str):
+    """Try several ways to resolve the target channel/entity and return it.
+
+    Accepts:
+     - public username (with or without @)
+     - numeric id (-100...)
+     - t.me link
+    """
+    if not target_str:
+        raise ValueError("Empty TARGET_CHANNEL")
+
+    tried = []
+    # Try as-is first
+    try:
+        ent = client.get_entity(target_str)
+        logger.debug("Resolved target_entity as-is: %r", getattr(ent, 'title', ent))
+        return ent
+    except Exception as e:
+        tried.append(f"as-is: {e}")
+
+    # t.me links
+    if target_str.startswith("https://t.me/") or target_str.startswith("http://t.me/"):
+        short = target_str.rstrip("/\n").rsplit("/", 1)[-1]
+        try:
+            ent = client.get_entity(short)
+            logger.debug("Resolved target_entity from t.me link: %r", getattr(ent, 'title', ent))
+            return ent
+        except Exception as e:
+            tried.append(f"t.me: {e}")
+
+    # @username
+    if target_str.startswith("@"):
+        try:
+            ent = client.get_entity(target_str[1:])
+            logger.debug("Resolved target_entity from @username: %r", getattr(ent, 'title', ent))
+            return ent
+        except Exception as e:
+            tried.append(f"@username: {e}")
+
+    # numeric id
+    try:
+        if target_str.isdigit() or (target_str.startswith("-100") and len(target_str) > 4):
+            ent = client.get_entity(int(target_str))
+            logger.debug("Resolved target_entity from numeric id: %r", getattr(ent, 'title', ent))
+            return ent
+    except Exception as e:
+        tried.append(f"numeric: {e}")
+
+    logger.error("Failed to resolve TARGET_CHANNEL '%s'. Attempts: %s", target_str, "; ".join(tried))
+    raise
+
+
 def main():
     if not API_ID_RAW or not API_HASH or not SESSION_STRING or not TARGET_CHANNEL:
         logger.error(
@@ -567,10 +633,17 @@ def main():
     state = load_state()
     client = TelegramClient(StringSession(SESSION_STRING), api_id, API_HASH)
 
+    # Start the client explicitly for clearer errors
+    try:
+        client.start()
+    except Exception:
+        logger.exception("Failed to start Telegram client. Check SESSION_STRING and API credentials")
+        raise
+
     with client:
         try:
             logger.info("Resolving target channel: %s", TARGET_CHANNEL)
-            target_entity = client.get_entity(TARGET_CHANNEL)
+            target_entity = resolve_target_entity(client, TARGET_CHANNEL)
             logger.info("Target resolved: %s", getattr(target_entity, "title", TARGET_CHANNEL))
         except Exception:
             logger.exception("Failed to resolve TARGET_CHANNEL '%s'", TARGET_CHANNEL)
