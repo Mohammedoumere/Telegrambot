@@ -565,22 +565,42 @@ def process_telegram_channels(client, target_entity, state):
 
 
 def resolve_target_entity(client, target_str):
-    """Try several ways to resolve the target channel/entity and return it.
+    """Try several ways to resolve the target channel/entity and return an input entity.
 
     Accepts:
      - public username (with or without @)
      - numeric id (-100...)
      - t.me link
+    Returns a Telethon input entity (safe to pass to send_message/send_file).
     """
     if not target_str:
         raise ValueError("Empty TARGET_CHANNEL")
 
     tried = []
+
+    # Helper to return an input entity and log details
+    def _return_entity(ent, desc):
+        try:
+            # Convert to input entity for safer sending
+            input_ent = client.get_input_entity(ent)
+        except Exception:
+            # fall back to returning ent itself
+            input_ent = ent
+        try:
+            me = client.get_me()
+            if getattr(ent, "id", None) == getattr(me, "id", None):
+                logger.warning("Resolved target_entity appears to be the session user (Saved Messages). Is TARGET_CHANNEL correct?")
+        except Exception:
+            pass
+
+        # Log key details for debugging
+        logger.debug("Resolved target_entity (%s): id=%r username=%r title=%r", desc, getattr(ent, "id", None), getattr(ent, "username", None), getattr(ent, "title", None))
+        return input_ent
+
     # Try as-is first
     try:
         ent = client.get_entity(target_str)
-        logger.debug("Resolved target_entity as-is: %r", getattr(ent, 'title', ent))
-        return ent
+        return _return_entity(ent, "as-is")
     except Exception as e:
         tried.append(f"as-is: {e}")
 
@@ -589,8 +609,7 @@ def resolve_target_entity(client, target_str):
         short = target_str.rstrip("/\n").rsplit("/", 1)[-1]
         try:
             ent = client.get_entity(short)
-            logger.debug("Resolved target_entity from t.me link: %r", getattr(ent, 'title', ent))
-            return ent
+            return _return_entity(ent, "t.me")
         except Exception as e:
             tried.append(f"t.me: {e}")
 
@@ -598,8 +617,7 @@ def resolve_target_entity(client, target_str):
     if target_str.startswith("@"):
         try:
             ent = client.get_entity(target_str[1:])
-            logger.debug("Resolved target_entity from @username: %r", getattr(ent, 'title', ent))
-            return ent
+            return _return_entity(ent, "@username")
         except Exception as e:
             tried.append(f"@username: {e}")
 
@@ -607,13 +625,12 @@ def resolve_target_entity(client, target_str):
     try:
         if target_str.isdigit() or (target_str.startswith("-100") and len(target_str) > 4):
             ent = client.get_entity(int(target_str))
-            logger.debug("Resolved target_entity from numeric id: %r", getattr(ent, 'title', ent))
-            return ent
+            return _return_entity(ent, "numeric")
     except Exception as e:
         tried.append(f"numeric: {e}")
 
     logger.error("Failed to resolve TARGET_CHANNEL '%s'. Attempts: %s", target_str, "; ".join(tried))
-    raise
+    raise ValueError(f"Unable to resolve TARGET_CHANNEL '{target_str}'. See logs for attempts: {tried}")
 
 
 def main():
@@ -644,7 +661,14 @@ def main():
         try:
             logger.info("Resolving target channel: %s", TARGET_CHANNEL)
             target_entity = resolve_target_entity(client, TARGET_CHANNEL)
-            logger.info("Target resolved: %s", getattr(target_entity, "title", TARGET_CHANNEL))
+            # Log a compact representation of the entity so you can confirm it's the one you expect
+            try:
+                me = client.get_me()
+                ent_id = getattr(target_entity, "channel_id", getattr(target_entity, "chat_id", getattr(target_entity, "user_id", getattr(target_entity, "id", None))))
+            except Exception:
+                ent_id = getattr(target_entity, "id", None)
+            logger.info("Target resolved: %s (entity=%r)", TARGET_CHANNEL, target_entity)
+            logger.debug("Target entity repr: %r", target_entity)
         except Exception:
             logger.exception("Failed to resolve TARGET_CHANNEL '%s'", TARGET_CHANNEL)
             raise
