@@ -35,29 +35,29 @@
   "rss:https://addisstandard.com/feed/": [],
   "rss:https://ethsat.com/feed/": [],
   "rss:https://capitalethiopia.com/feed/": [
-    "https://capitalethiopia.com/?p=82282",
     "https://capitalethiopia.com/?p=82196",
+    "https://capitalethiopia.com/?p=82282",
     "https://capitalethiopia.com/?p=82216"
   ],
   "rss:https://waltainfo.com/feed/": [],
   "posted_hashes": [
+    "6758d5a7efabe7b2cc777b9a711188cd",
+    "3bd74e23f402198fb5afd4ac9173df1b",
+    "584d2604fb1219572fd7c2b85d779536",
+    "b03241c550f0c60c36d8ddde185c3333",
+    "f802dffbbfb010f3e429362b7a1fdd44",
+    "fd57053debcfc7e8e73ca18125b717f5",
+    "bd76f56624f4fc04ffacb066aff5a8b3",
     "0139aa8c916a44815dd2cd45d1c19b6c",
     "701b8e5029c26c2c535b3994fcd7bd34",
-    "fd57053debcfc7e8e73ca18125b717f5",
-    "584d2604fb1219572fd7c2b85d779536",
-    "3bd74e23f402198fb5afd4ac9173df1b",
-    "f802dffbbfb010f3e429362b7a1fdd44",
-    "6758d5a7efabe7b2cc777b9a711188cd",
-    "b03241c550f0c60c36d8ddde185c3333",
-    "bd76f56624f4fc04ffacb066aff5a8b3",
     "b800fe1e9cc792502c9e846644489294"
   ],
   "rss:http://feeds.bbci.co.uk/news/rss.xml": [
-    "https://www.bbc.co.uk/news/articles/c24j5192j7jo#0",
-    "https://www.bbc.co.uk/news/articles/c5ylvgq9q71o#0",
+    "https://www.bbc.co.uk/news/articles/ckg0yyg7m9mo#0",
     "https://www.bbc.co.uk/news/articles/cvgy4258kgyo#0",
     "https://www.bbc.co.uk/news/articles/c8d39vq779no#0",
-    "https://www.bbc.co.uk/news/articles/ckg0yyg7m9mo#0",
-    "https://www.bbc.co.uk/news/articles/cx2z528rdp6o#0"
+    "https://www.bbc.co.uk/news/articles/cx2z528rdp6o#0",
+    "https://www.bbc.co.uk/news/articles/c24j5192j7jo#0",
+    "https://www.bbc.co.uk/news/articles/c5ylvgq9q71o#0"
   ]
 }
