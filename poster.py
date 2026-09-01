@@ -8,7 +8,7 @@ Reads new articles from:
 
 Posts news with:
   - Clear, attractive headlines
-  - Longer, engaging summaries (100 words max, context-aware)
+  - Longer, engaging summaries (200 words max, context-aware)
   - Multi-language translations (English / Amharic / Afaan Oromoo)
   - Each language as separate message (never mixed)
   - News category tags when available
@@ -177,14 +177,14 @@ def guess_category(title: str, summary: str) -> str:
     return "📰"  # default news emoji
 
 
-def summarize(text: str, title: str = "", max_words: int = 100) -> str:
+def summarize(text: str, title: str = "", max_words: int = 200) -> str:
     """Create an intelligent, context-aware summary.
     
-    Base length is 100 words, but adapts based on category:
-    - Politics/Business/Health: Full context (100 words) for important details
+    Base length is 200 words, but adapts based on category:
+    - Politics/Business/Health: Full context (200 words) for important details
     - Tech/Science: Full length for explanations
     - Sports: Full length for game details
-    - General: Standard 100 words
+    - General: Standard 200 words
     """
     text = text.strip()
     words = text.split()
@@ -194,13 +194,13 @@ def summarize(text: str, title: str = "", max_words: int = 100) -> str:
     
     # Adjust word count based on category importance
     if category in ["politics", "business", "health"]:
-        word_limit = 100  # Full context for important news
+        word_limit = 200  # Full context for important news
     elif category in ["tech", "science"]:
-        word_limit = 100  # Detailed explanations needed
+        word_limit = 200  # Detailed explanations needed
     elif category == "sport":
-        word_limit = 95   # Game details
+        word_limit = 190   # Game details
     else:
-        word_limit = 100  # Default for general news
+        word_limit = 200  # Default for general news
     
     if len(words) <= word_limit:
         return text
@@ -306,7 +306,7 @@ def post_summary(client, target_entity, raw_text: str, source_label: str,
     🇬🇧 English
     📰 HEADLINE
     
-    Full context summary (100 words, category-aware)...
+    Full context summary (200 words, category-aware)...
     
     — Source Name
     
