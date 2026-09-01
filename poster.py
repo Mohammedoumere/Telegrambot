@@ -248,17 +248,20 @@ def translate_via_openai(text: str, target: str):
 
 
 def translate(text: str, target: str):
-    """Translate text using, in order: Google Cloud Translation API (if configured),
-    ChatGPT/OpenAI (if configured), then the free unofficial Google Translate method
-    as a last resort. Returns the translated string, or None if every method failed
+    """Translate text using, in order: ChatGPT/OpenAI (if configured),
+    then the free unofficial Google Translate method as a last resort.
+    Returns the translated string, or None if every method failed
     or came back looking like an error page."""
     if target == "en":
         return text
 
     result = None
-    if result is None and OPENAI_API_KEY:
+    
+    # Try OpenAI first if configured
+    if OPENAI_API_KEY:
         result = translate_via_openai(text, target)
 
+    # Fall back to Google Translate if OpenAI didn't work
     if result is None:
         try:
             result = GoogleTranslator(source="auto", target=target).translate(text)
@@ -266,6 +269,7 @@ def translate(text: str, target: str):
             logger.warning("Translation to %s failed: %s", target, e)
             return None
 
+    # Validate the result
     if not result or not result.strip():
         logger.warning("Translation to %s returned empty result", target)
         return None
