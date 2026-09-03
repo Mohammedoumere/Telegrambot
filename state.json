@@ -37,39 +37,39 @@
   "rss:https://capitalethiopia.com/feed/": [
     "https://capitalethiopia.com/?p=82196",
     "https://capitalethiopia.com/?p=82329",
-    "https://capitalethiopia.com/?p=82216",
     "https://capitalethiopia.com/?p=82336",
+    "https://capitalethiopia.com/?p=82216",
     "https://capitalethiopia.com/?p=82282"
   ],
   "rss:https://waltainfo.com/feed/": [],
   "posted_hashes": [
-    "d7cace3ba2b65922c3e8985f22da48d6",
+    "2e8ceffa8cf8e65d607f5faf9ac263b9",
+    "3bd74e23f402198fb5afd4ac9173df1b",
     "f802dffbbfb010f3e429362b7a1fdd44",
     "584d2604fb1219572fd7c2b85d779536",
     "6758d5a7efabe7b2cc777b9a711188cd",
-    "2e8ceffa8cf8e65d607f5faf9ac263b9",
-    "77ca936b8021f04cf5a7481aba314eb1",
     "cc2ec4c0207d3f599f5953476465e3d3",
-    "bd76f56624f4fc04ffacb066aff5a8b3",
-    "3bd74e23f402198fb5afd4ac9173df1b",
     "701b8e5029c26c2c535b3994fcd7bd34",
     "ac233d365d4dc1354a71f42283dfe4f8",
     "0139aa8c916a44815dd2cd45d1c19b6c",
-    "b03241c550f0c60c36d8ddde185c3333",
+    "fd57053debcfc7e8e73ca18125b717f5",
+    "bd76f56624f4fc04ffacb066aff5a8b3",
     "b800fe1e9cc792502c9e846644489294",
     "cb17998478c7536f8d9f7d4fe56f21fa",
-    "fd57053debcfc7e8e73ca18125b717f5"
+    "b03241c550f0c60c36d8ddde185c3333",
+    "77ca936b8021f04cf5a7481aba314eb1",
+    "d7cace3ba2b65922c3e8985f22da48d6"
   ],
   "rss:http://feeds.bbci.co.uk/news/rss.xml": [
-    "https://www.bbc.co.uk/news/articles/c5ylvgq9q71o#0",
-    "https://www.bbc.co.uk/news/articles/c24j5192j7jo#0",
-    "https://www.bbc.co.uk/news/articles/cn9wv7pene2o#0",
-    "https://www.bbc.co.uk/news/articles/c7507z4enq6o#0",
-    "https://www.bbc.co.uk/news/articles/cd6857j2v1qo#0",
-    "https://www.bbc.co.uk/news/articles/ckg0yyg7m9mo#0",
-    "https://www.bbc.co.uk/news/articles/c8d39vq779no#0",
-    "https://www.bbc.co.uk/news/articles/cj06q4ynpmjo#0",
     "https://www.bbc.co.uk/news/articles/cvgy4258kgyo#0",
-    "https://www.bbc.co.uk/news/articles/cx2z528rdp6o#0"
+    "https://www.bbc.co.uk/news/articles/ckg0yyg7m9mo#0",
+    "https://www.bbc.co.uk/news/articles/cn9wv7pene2o#0",
+    "https://www.bbc.co.uk/news/articles/c24j5192j7jo#0",
+    "https://www.bbc.co.uk/news/articles/cx2z528rdp6o#0",
+    "https://www.bbc.co.uk/news/articles/cd6857j2v1qo#0",
+    "https://www.bbc.co.uk/news/articles/cj06q4ynpmjo#0",
+    "https://www.bbc.co.uk/news/articles/c7507z4enq6o#0",
+    "https://www.bbc.co.uk/news/articles/c8d39vq779no#0",
+    "https://www.bbc.co.uk/news/articles/c5ylvgq9q71o#0"
   ]
 }
